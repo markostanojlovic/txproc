@@ -1,5 +1,5 @@
 import pytest
-from tests.integration_common import *
+from tests.common import *
 
 
 @pytest.mark.parametrize("tx_input, expected_output",
@@ -121,11 +121,6 @@ from tests.integration_common import *
                                           id="chargeback_on_withdrawal"),
                          ])
 def test_basic_tx_processing(tx_input, expected_output):
-    """
-    Assumption: Transaction ID should be unique, duplicate tx ids should be ignored and discarded
-    Assumption: Is event occurs to withdraw more than available, tx is discarded
-    Assumption: Dispute on withdrawal is ignored as well as other types except deposit.
-    """
     assert_dataframes_match(process_all_tx(tx_input), expected_df(expected_output))
 
 
@@ -146,10 +141,6 @@ def test_basic_tx_processing(tx_input, expected_output):
                          ])
 def test_no_tx(tx_input):
     assert process_all_tx(tx_input).empty
-
-
-INPUT_FOR_DISCARDED_TX_LARGE_WITHDRAWAL = [("deposit", 1, 1, 100.0),
-                                           ("withdrawal", 1, 2, 101.0)]
 
 
 @pytest.mark.parametrize("tx_input, expected_output",
@@ -202,4 +193,14 @@ def test_on_locked_acc(tx_input, expected_output):
                         ("dispute", 1, 1),
                         ("chargeback", 1, 1)]
     assert_dataframes_match(process_all_tx(input_locked_acc + tx_input),
+                            expected_df(expected_output))
+
+
+def test_dispute_on_wrong_account():
+    tx_input = [("deposit", 1, 1, 100.0),
+                ("deposit", 2, 2, 10.0),
+                ("dispute", 1, 2)]
+    expected_output = [[1, 100.0, 0.0, 100.0, "false"],
+                       [2, 0.0, 10.0, 10.0, "false"]]
+    assert_dataframes_match(process_all_tx(tx_input + tx_input),
                             expected_df(expected_output))

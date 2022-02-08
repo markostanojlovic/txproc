@@ -10,7 +10,7 @@ class TxProcessor:
         self.tx_log = pd.DataFrame(columns=['type', 'client', 'tx', 'amount'])
         self.tx_under_dispute = list()
 
-    def _find_dw_tx(self, txid) -> DataFrame:
+    def _find_deposit_tx(self, txid) -> DataFrame:
         """
         Assumption: dispute can happen only on deposit type of transaction
         """
@@ -40,28 +40,34 @@ class TxProcessor:
                     cl.withdrawal(amount)
         elif tx_type == "dispute":
             if self.bank.is_account_open(cid) and txid not in self.tx_under_dispute:
-                dispute_tx = self._find_dw_tx(txid)
-                dispute_amount = self._get_amount(dispute_tx)
-                cl = self.bank.get_client(cid)
-                if cl.locked == "false":
-                    cl.dispute(dispute_amount)
+                dispute_tx = self._find_deposit_tx(txid)
+                if not dispute_tx.empty:
+                    dispute_amount = self._get_amount(dispute_tx)
+                    dispute_cid = dispute_tx["client"].values[0]
+                    cl = self.bank.get_client(dispute_cid)
+                    if cl.locked == "false":
+                        cl.dispute(dispute_amount)
                 self.tx_under_dispute.append(txid)
         elif tx_type == "resolve":
             if txid in self.tx_under_dispute and self.bank.is_account_open(cid):
-                resolve_tx = self._find_dw_tx(txid)
-                resolve_amount = self._get_amount(resolve_tx)
-                cl = self.bank.get_client(cid)
-                if cl.locked == "false":
-                    cl.resolve(resolve_amount)
-                self.tx_under_dispute.remove(txid)
+                resolve_tx = self._find_deposit_tx(txid)
+                if not resolve_tx.empty:
+                    resolve_amount = self._get_amount(resolve_tx)
+                    resolve_cid = resolve_tx["client"].values[0]
+                    cl = self.bank.get_client(resolve_cid)
+                    if cl.locked == "false":
+                        cl.resolve(resolve_amount)
+                    self.tx_under_dispute.remove(txid)
         elif tx_type == "chargeback":
             if txid in self.tx_under_dispute and self.bank.is_account_open(cid):
-                chback_tx = self._find_dw_tx(txid)
-                chback_amount = self._get_amount(chback_tx)
-                cl = self.bank.get_client(cid)
-                if cl.locked == "false":
-                    cl.chargeback(chback_amount)
-                self.tx_under_dispute.remove(txid)
+                chback_tx = self._find_deposit_tx(txid)
+                if not chback_tx.empty:
+                    chback_amount = self._get_amount(chback_tx)
+                    chback_cid = chback_tx["client"].values[0]
+                    cl = self.bank.get_client(chback_cid)
+                    if cl.locked == "false":
+                        cl.chargeback(chback_amount)
+                    self.tx_under_dispute.remove(txid)
         else:
             return
         new_tx_log = pd.DataFrame([[tx_type, cid, txid, amount]], columns=self.tx_log.columns)

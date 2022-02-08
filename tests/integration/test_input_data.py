@@ -1,5 +1,5 @@
 import pytest
-from tests.integration_common import *
+from tests.common import *
 
 
 def test_deposit_amount_type_int():
